@@ -1,0 +1,213 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Tutor authorization is tied to one verified Firebase Auth UID. Replace this before deployment.
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isTutor() {
+      return signedIn()
+        && request.auth.token.email_verified == true
+        && request.auth.uid == 'REPLACE_WITH_TUTOR_UID';
+    }
+    function profilePath(uid) {
+      return /databases/$(database)/documents/userProfiles/$(uid);
+    }
+    function participantPath(participantId) {
+      return /databases/$(database)/documents/participants/$(participantId);
+    }
+    function claimPath(participantId) {
+      return /databases/$(database)/documents/participantClaims/$(participantId);
+    }
+    function topicPath(topicId) {
+      return /databases/$(database)/documents/topics/$(topicId);
+    }
+    function ownerPath(topicId) {
+      return /databases/$(database)/documents/topicOwners/$(topicId);
+    }
+    function hasStudentProfile() {
+      return signedIn()
+        && exists(profilePath(request.auth.uid))
+        && get(profilePath(request.auth.uid)).data.role == 'student';
+    }
+    function isRegistered() {
+      return isTutor() || hasStudentProfile();
+    }
+    function phaseIs(value) {
+      return exists(/databases/$(database)/documents/settings/main)
+        && get(/databases/$(database)/documents/settings/main).data.phase == value;
+    }
+    function validSettings(data) {
+      return data.keys().hasOnly(['phase', 'updatedAt', 'updatedBy'])
+        && data.keys().hasAll(['phase', 'updatedAt'])
+        && data.phase in ['proposals', 'voting', 'closed']
+        && data.updatedAt is timestamp
+        && data.updatedAt <= request.time
+        && (!('updatedBy' in data) || (data.updatedBy is string && data.updatedBy == request.auth.uid));
+    }
+    function validParticipant(data) {
+      return data.keys().hasOnly(['name', 'active', 'claimed', 'createdAt'])
+        && data.keys().hasAll(['name', 'active', 'claimed', 'createdAt'])
+        && data.name is string && data.name.size() >= 2 && data.name.size() <= 80
+        && data.active is bool
+        && data.claimed is bool
+        && data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+    function validStudentProfile(uid, data) {
+      let pid = data.participantId;
+      return data.keys().hasOnly(['participantId', 'displayName', 'role', 'createdAt'])
+        && data.keys().hasAll(['participantId', 'displayName', 'role', 'createdAt'])
+        && data.participantId is string && data.participantId.size() >= 2 && data.participantId.size() <= 64
+        && data.displayName is string && data.displayName.size() >= 2 && data.displayName.size() <= 80
+        && data.role == 'student'
+        && data.createdAt is timestamp && data.createdAt <= request.time
+        && getAfter(participantPath(pid)).data.name == data.displayName
+        && getAfter(participantPath(pid)).data.claimed == true
+        && getAfter(claimPath(pid)).data.uid == uid;
+    }
+    function validTopic(data) {
+      return data.keys().hasOnly(['participantId', 'name', 'slot', 'title', 'createdAt', 'updatedAt'])
+        && data.keys().hasAll(['participantId', 'name', 'slot', 'title', 'createdAt', 'updatedAt'])
+        && data.participantId is string && data.participantId.size() >= 2 && data.participantId.size() <= 64
+        && data.name is string && data.name.size() >= 2 && data.name.size() <= 80
+        && data.slot is int && data.slot in [1, 2, 3]
+        && data.title is string && data.title.size() >= 8 && data.title.size() <= 180
+        && data.createdAt is timestamp && data.createdAt <= request.time
+        && data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+    function validOwner(data) {
+      return data.keys().hasOnly(['uid', 'participantId', 'slot'])
+        && data.keys().hasAll(['uid', 'participantId', 'slot'])
+        && data.uid == request.auth.uid
+        && data.participantId is string && data.participantId.size() >= 2 && data.participantId.size() <= 64
+        && data.slot is int && data.slot in [1, 2, 3];
+    }
+    function validCriteria(scores) {
+      return scores is map
+        && scores.keys().hasOnly(['relevance', 'knowledge', 'scope', 'feasibility', 'contribution'])
+        && scores.keys().hasAll(['relevance', 'knowledge', 'scope', 'feasibility', 'contribution'])
+        && scores.relevance is int && scores.relevance >= 1 && scores.relevance <= 10
+        && scores.knowledge is int && scores.knowledge >= 1 && scores.knowledge <= 10
+        && scores.scope is int && scores.scope >= 1 && scores.scope <= 10
+        && scores.feasibility is int && scores.feasibility >= 1 && scores.feasibility <= 10
+        && scores.contribution is int && scores.contribution >= 1 && scores.contribution <= 10;
+    }
+    function weightedScore(scores) {
+      return scores.relevance * 2
+        + scores.knowledge * 1.5
+        + scores.scope * 2
+        + scores.feasibility * 2.5
+        + scores.contribution * 2;
+    }
+    function validVote(data) {
+      return data.keys().hasOnly(['topicId', 'criteria', 'score', 'createdAt', 'updatedAt'])
+        && data.keys().hasAll(['topicId', 'criteria', 'score', 'createdAt', 'updatedAt'])
+        && data.topicId is string && data.topicId.size() >= 3 && data.topicId.size() <= 100
+        && validCriteria(data.criteria)
+        && data.score is number && data.score == weightedScore(data.criteria)
+        && data.createdAt is timestamp && data.createdAt <= request.time
+        && data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    match /settings/{settingId} {
+      allow get, list: if signedIn();
+      allow create, update: if isTutor() && settingId == 'main' && validSettings(request.resource.data);
+      allow delete: if false;
+    }
+
+    match /participants/{participantId} {
+      allow get, list: if signedIn();
+      allow create: if isTutor() && validParticipant(request.resource.data);
+      // A participant can claim one roster entry through the same atomic write as their private profile.
+      allow update: if isTutor() && validParticipant(request.resource.data)
+        || (signedIn()
+          && resource.data.claimed == false
+          && request.resource.data.claimed == true
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claimed'])
+          && getAfter(profilePath(request.auth.uid)).data.participantId == participantId
+          && getAfter(claimPath(participantId)).data.uid == request.auth.uid);
+      allow delete: if false;
+    }
+
+    match /participantClaims/{participantId} {
+      allow get: if isTutor() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow list: if false;
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['uid', 'createdAt'])
+        && request.resource.data.keys().hasAll(['uid', 'createdAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.createdAt <= request.time
+        && getAfter(profilePath(request.auth.uid)).data.participantId == participantId
+        && getAfter(participantPath(participantId)).data.claimed == true;
+      allow update, delete: if false;
+    }
+
+    match /userProfiles/{uid} {
+      allow get: if isTutor() || (signedIn() && uid == request.auth.uid);
+      allow list: if false;
+      allow create: if signedIn() && uid == request.auth.uid && validStudentProfile(uid, request.resource.data);
+      allow update, delete: if false;
+    }
+
+    match /topics/{topicId} {
+      allow get, list: if signedIn();
+      allow create: if hasStudentProfile()
+        && phaseIs('proposals')
+        && validTopic(request.resource.data)
+        && ((request.resource.data.slot == 1 && topicId == request.resource.data.participantId + '_1')
+          || (request.resource.data.slot == 2 && topicId == request.resource.data.participantId + '_2')
+          || (request.resource.data.slot == 3 && topicId == request.resource.data.participantId + '_3'))
+        && get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.participantId == request.resource.data.participantId
+        && get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.displayName == request.resource.data.name
+        && getAfter(ownerPath(topicId)).data.uid == request.auth.uid
+        && getAfter(ownerPath(topicId)).data.participantId == request.resource.data.participantId
+        && getAfter(ownerPath(topicId)).data.slot == request.resource.data.slot;
+      allow update: if hasStudentProfile()
+        && phaseIs('proposals')
+        && validTopic(request.resource.data)
+        && get(ownerPath(topicId)).data.uid == request.auth.uid
+        && get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.participantId == resource.data.participantId
+        && request.resource.data.participantId == resource.data.participantId
+        && request.resource.data.name == resource.data.name
+        && request.resource.data.slot == resource.data.slot
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'updatedAt']);
+      allow delete: if false;
+    }
+
+    match /topicOwners/{topicId} {
+      allow get: if isTutor() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow list: if false;
+      allow create: if hasStudentProfile()
+        && phaseIs('proposals')
+        && validOwner(request.resource.data)
+        && get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.participantId == request.resource.data.participantId
+        && getAfter(topicPath(topicId)).data.participantId == request.resource.data.participantId
+        && getAfter(topicPath(topicId)).data.slot == request.resource.data.slot;
+      allow update, delete: if false;
+    }
+
+    match /votes/{voteId} {
+      // Ratings have no student name. Authenticated class members can receive the live aggregate view.
+      allow get, list: if signedIn();
+      allow create: if isRegistered()
+        && phaseIs('voting')
+        && validVote(request.resource.data)
+        && exists(topicPath(request.resource.data.topicId))
+        && voteId == request.auth.uid + '__' + request.resource.data.topicId;
+      allow update: if isRegistered()
+        && phaseIs('voting')
+        && validVote(request.resource.data)
+        && exists(topicPath(request.resource.data.topicId))
+        && voteId == request.auth.uid + '__' + request.resource.data.topicId
+        && request.resource.data.topicId == resource.data.topicId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['criteria', 'score', 'updatedAt']);
+      allow delete: if false;
+    }
+
+    // No other collections or documents are readable or writable.
+  }
+}
+
