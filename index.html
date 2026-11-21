@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#203a75">
+  <meta name="description" content="Herramienta de selección, evaluación y priorización de temas de tesis.">
+  <title>Herramienta de Selección de Tema de Tesis</title>
+  <link rel="icon" href="./assets/logo-unh.png">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="masthead">
+    <div class="brand">
+      <img src="./assets/logo-unh.png" alt="Universidad Nacional Héroes de San José de las Mulas" class="brand-logo">
+      <div class="brand-copy">
+        <p class="institution">UNIVERSIDAD NACIONAL HÉROES DE SAN JOSÉ DE LAS MULAS</p>
+        <h1>Herramienta de Selección de Tema de Tesis</h1>
+      </div>
+    </div>
+    <div class="header-actions">
+      <div class="connection" id="connection"><span class="connection-dot"></span><span id="connection-label">Conectando</span></div>
+      <button class="button outline" id="tutor-open" type="button">Panel del tutor</button>
+    </div>
+  </header>
+  <main class="page">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">IDEAS CLARAS · DECISIONES COMPARTIDAS</p>
+        <h2>Elegir un tema posible también es parte de investigar.</h2>
+        <p>Presenten sus propuestas, evalúenlas con los mismos criterios y observen cómo cambia el ranking en tiempo real.</p>
+        <div class="flow"><span><b>01</b> Proponer</span><i></i><span><b>02</b> Evaluar</span><i></i><span><b>03</b> Comparar</span></div>
+      </div>
+      <div class="score-stamp"><span>Máximo por evaluación</span><strong>100</strong><small>5 criterios ponderados</small></div>
+      <span class="shape cyan"></span><span class="shape yellow"></span><span class="shape pink"></span>
+    </section>
+    <section class="metrics" aria-label="Resumen en vivo">
+      <article class="metric"><span class="metric-icon navy">T</span><div><strong id="topic-count">—</strong><small>temas propuestos</small></div></article>
+      <article class="metric"><span class="metric-icon cyan">P</span><div><strong id="participant-count">—</strong><small>participantes</small></div></article>
+      <article class="metric"><span class="metric-icon red">V</span><div><strong id="vote-count">—</strong><small>votantes</small></div></article>
+      <div class="phase-pill" id="phase-pill">Cargando etapa…</div>
+    </section>
+    <nav class="tabs" aria-label="Secciones">
+      <button class="tab active" data-view="propose" type="button"><span>1</span> Proponer tema</button>
+      <button class="tab" data-view="vote" type="button"><span>2</span> Votar</button>
+      <button class="tab" data-view="results" type="button"><span>3</span> Resultados en vivo <b class="live-dot"></b></button>
+    </nav>
+    <div class="alert" id="global-alert" role="status" hidden></div>
+    <div class="alert error" id="firebase-alert" role="alert" hidden></div>
+
+    <section class="view active" id="view-propose">
+      <div class="section-heading"><div><p class="eyebrow">FASE 01</p><h2>Presenta tus propuestas</h2></div><p>Selecciona tu nombre y registra hasta tres temas. Podrás editarlos mientras el registro esté abierto.</p></div>
+      <div class="two-column">
+        <aside class="card identity-card">
+          <div class="card-heading"><span class="small-icon pink">01</span><div><h3>Identifícate</h3><p>Elige tu nombre en la lista del curso.</p></div></div>
+          <label for="participant-select">Tu nombre</label>
+          <select id="participant-select"><option value="">Cargando lista…</option></select>
+          <button class="button primary full" id="join-button" type="button" disabled>Continuar con este nombre</button>
+          <p class="hint" id="identity-hint">Tu nombre se asigna una vez para cuidar la votación.</p>
+          <div class="identity-state" id="identity-state" hidden></div>
+        </aside>
+        <div class="card editor-card">
+          <div class="card-heading"><span class="small-icon cyan">03</span><div><h3>Tus temas de tesis</h3><p>Escribe el título provisional de cada propuesta.</p></div></div>
+          <div id="topic-editor" class="topic-editor"></div>
+          <div class="empty-state" id="no-topics-message" hidden><div class="empty-mark">+</div><h3>Primero elige tu nombre</h3><p>Después podrás guardar hasta tres propuestas.</p></div>
+          <p class="hint">Una propuesta puede ser provisional. Lo importante es que sea clara y se pueda investigar.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-vote">
+      <div class="section-heading"><div><p class="eyebrow">FASE 02</p><h2>Evalúa cada tema</h2></div><p>Asigna una nota del 1 al 10 en cada criterio. La herramienta convierte las cinco notas a un máximo de 100 puntos.</p></div>
+      <div class="weight-strip" id="weight-strip"></div>
+      <div class="vote-intro card"><div><strong>Un tema, cinco criterios.</strong><p>Califica las propuestas. Tus notas se guardan sin mostrar tu nombre y los resultados se presentan como promedios.</p></div><div class="your-score"><span>Máximo</span><strong>100</strong><small>puntos por tema</small></div></div>
+      <div class="identity-needed card" id="vote-identity-needed" hidden><p>Antes de votar, selecciona tu nombre en <button class="text-button" data-go="propose" type="button">Proponer tema</button>.</p></div>
+      <div id="voting-list" class="voting-list"></div>
+      <div class="vote-footer" id="vote-footer" hidden><p id="vote-status-text">Completa la evaluación de cada tema.</p><button class="button primary" id="submit-votes" type="button">Guardar mis evaluaciones</button></div>
+    </section>
+
+    <section class="view" id="view-results">
+      <div class="section-heading"><div><p class="eyebrow">FASE 03</p><h2>Temas mejor valorados</h2></div><p>El ranking se actualiza automáticamente cuando alguien guarda o cambia una evaluación.</p></div>
+      <div class="results-summary">
+        <div class="result-feature card"><div class="result-feature-copy"><p class="eyebrow">LIDERAZGO ACTUAL</p><h3 id="leader-title">Esperando propuestas</h3><p id="leader-caption">Cuando comiencen las evaluaciones, aquí aparecerá el tema con mayor promedio.</p></div><div class="leader-score"><strong id="leader-score">—</strong><span>/ 100</span></div></div>
+        <aside class="card result-note"><span class="small-icon yellow">i</span><h3>Cómo leer el ranking</h3><p>El resultado de cada tema es el promedio de las evaluaciones recibidas. Las cinco ponderaciones suman 100.</p><p class="note-small">La votación orienta la conversación del grupo; la decisión final se conversa con el tutor.</p></aside>
+      </div>
+      <div class="ranking-header"><h3>Ranking general</h3><span>En tiempo real</span></div>
+      <div class="ranking-list" id="ranking-list"></div>
+    </section>
+
+    <section class="card tutor-panel" id="tutor-panel" hidden>
+      <div class="tutor-panel-heading"><div><p class="eyebrow">GESTIÓN DE LA SESIÓN</p><h2>Panel del tutor</h2><p id="tutor-session-status">Inicia sesión para administrar participantes y etapas.</p></div><button class="icon-button" id="tutor-close" aria-label="Cerrar panel" type="button">×</button></div>
+      <form id="tutor-login" class="tutor-login">
+        <label for="tutor-email">Correo autorizado del tutor</label><input id="tutor-email" type="email" autocomplete="username" placeholder="correo@universidad.edu" required>
+        <label for="tutor-password">Contraseña</label><input id="tutor-password" type="password" autocomplete="current-password" placeholder="Contraseña" required>
+        <div class="login-actions"><button class="button primary" type="submit">Iniciar sesión</button><button class="text-button" id="tutor-register" type="button">Crear acceso de tutor</button></div>
+      </form>
+      <div id="tutor-controls" hidden>
+        <div class="admin-grid">
+          <div class="admin-box"><h3>Lista de participantes</h3><p>Escribe un nombre por línea. Luego podrán seleccionar su nombre.</p><textarea id="roster-input" rows="5" placeholder="Nombre Apellido&#10;Nombre Apellido"></textarea><button class="button dark" id="add-participants" type="button">Agregar a la lista</button><div id="roster-list" class="roster-list"></div></div>
+          <div class="admin-box"><h3>Etapa de la actividad</h3><p>El cambio se reflejará al instante para todas las personas conectadas.</p><div class="phase-actions"><button class="button light" data-phase="proposals" type="button">Abrir propuestas</button><button class="button primary" data-phase="voting" type="button">Abrir votación</button><button class="button outline" data-phase="closed" type="button">Cerrar sesión</button></div><div class="tutor-vote"><h3>Voto del tutor</h3><p>Tu voto se incluye con el mismo peso que cada participante.</p><button class="button secondary" id="tutor-vote-button" type="button">Ir a votar como tutor</button></div></div>
+        </div>
+        <button class="text-button sign-out" id="tutor-signout" type="button">Cerrar sesión de tutor</button>
+      </div>
+    </section>
+  </main>
+  <footer class="footer"><p>Herramienta de apoyo para la selección de temas de tesis</p><span>Universidad Nacional Héroes de San José de las Mulas</span></footer>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
+
