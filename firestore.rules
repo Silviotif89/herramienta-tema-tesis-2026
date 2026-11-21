@@ -1,13 +1,12 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Tutor authorization is tied to one verified Firebase Auth UID. Replace this before deployment.
+    // Tutor authorization is tied to one Firebase Auth UID. Replace this before deployment.
     function signedIn() {
       return request.auth != null;
     }
     function isTutor() {
       return signedIn()
-        && request.auth.token.email_verified == true
         && request.auth.uid == 'REPLACE_WITH_TUTOR_UID';
     }
     function profilePath(uid) {

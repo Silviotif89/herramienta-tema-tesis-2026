@@ -19,10 +19,10 @@ El ranking calcula el promedio de las evaluaciones recibidas por cada tema. El v
 ## Configurar Firebase
 
 1. Crea un proyecto Firebase nuevo y registra una aplicación web.
-2. Crea Cloud Firestore Standard en `northamerica-south1` (Querétaro).
-3. En Authentication, activa **Anonymous** y **Email/Password**.
+2. Cloud Firestore Standard está creado en `northamerica-south1` (México).
+3. En Authentication, activa **Anonymous** para crear una identidad persistente por navegador.
 4. Copia la configuración web del proyecto en `firebase-config.js` y el ID del proyecto en `.firebaserc`.
-5. El tutor crea su acceso desde el panel de la aplicación y verifica su correo. Copia su UID desde Authentication → Users.
+5. La sesión de tutor queda vinculada al UID anónimo persistente del navegador autorizado; conserva los datos de este navegador para mantener el acceso.
 6. Sustituye `REPLACE_WITH_TUTOR_UID` en `firebase-config.js` y `firestore.rules` por ese UID.
 7. Publica las reglas: `firebase deploy --only firestore:rules`.
 8. En Authentication → Settings → Authorized domains, agrega `silviotif89.github.io` y `localhost`.

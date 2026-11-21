@@ -89,17 +89,12 @@
 
     <section class="card tutor-panel" id="tutor-panel" hidden>
       <div class="tutor-panel-heading"><div><p class="eyebrow">GESTIÓN DE LA SESIÓN</p><h2>Panel del tutor</h2><p id="tutor-session-status">Inicia sesión para administrar participantes y etapas.</p></div><button class="icon-button" id="tutor-close" aria-label="Cerrar panel" type="button">×</button></div>
-      <form id="tutor-login" class="tutor-login">
-        <label for="tutor-email">Correo autorizado del tutor</label><input id="tutor-email" type="email" autocomplete="username" placeholder="correo@universidad.edu" required>
-        <label for="tutor-password">Contraseña</label><input id="tutor-password" type="password" autocomplete="current-password" placeholder="Contraseña" required>
-        <div class="login-actions"><button class="button primary" type="submit">Iniciar sesión</button><button class="text-button" id="tutor-register" type="button">Crear acceso de tutor</button></div>
-      </form>
+      <div id="tutor-login" class="tutor-login"><p>El panel administrativo solo aparece en el navegador del tutor autorizado.</p></div>
       <div id="tutor-controls" hidden>
         <div class="admin-grid">
           <div class="admin-box"><h3>Lista de participantes</h3><p>Escribe un nombre por línea. Luego podrán seleccionar su nombre.</p><textarea id="roster-input" rows="5" placeholder="Nombre Apellido&#10;Nombre Apellido"></textarea><button class="button dark" id="add-participants" type="button">Agregar a la lista</button><div id="roster-list" class="roster-list"></div></div>
           <div class="admin-box"><h3>Etapa de la actividad</h3><p>El cambio se reflejará al instante para todas las personas conectadas.</p><div class="phase-actions"><button class="button light" data-phase="proposals" type="button">Abrir propuestas</button><button class="button primary" data-phase="voting" type="button">Abrir votación</button><button class="button outline" data-phase="closed" type="button">Cerrar sesión</button></div><div class="tutor-vote"><h3>Voto del tutor</h3><p>Tu voto se incluye con el mismo peso que cada participante.</p><button class="button secondary" id="tutor-vote-button" type="button">Ir a votar como tutor</button></div></div>
         </div>
-        <button class="text-button sign-out" id="tutor-signout" type="button">Cerrar sesión de tutor</button>
       </div>
     </section>
   </main>

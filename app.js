@@ -1,7 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.4.0/firebase-app.js";
 import {
-  getAuth, onAuthStateChanged, signInAnonymously, signInWithEmailAndPassword,
-  createUserWithEmailAndPassword, sendEmailVerification, signOut
+  getAuth, onAuthStateChanged, signInAnonymously
 } from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {
   getFirestore, collection, doc, getDoc, onSnapshot,
@@ -278,11 +277,11 @@ function renderTutorState() {
   $("tutor-login").hidden = loggedIn;
   $("tutor-controls").hidden = !loggedIn;
   const uidConfigured = configuredTutorUid && !configuredTutorUid.startsWith("REPLACE_");
-  $("tutor-session-status").textContent = !loggedIn
-    ? "Inicia sesión para administrar participantes y etapas."
+  $("tutor-session-status").textContent = loggedIn
+    ? "Sesión de tutor autorizada en este navegador."
     : uidConfigured
-      ? `Sesión activa como tutora · ${state.user?.email || "cuenta verificada"}`
-      : `Cuenta verificada. Copia este UID en firebase-config.js y firestore.rules para habilitar permisos: ${state.user.uid}`;
+      ? "Este navegador tiene acceso de participante. El panel administrativo está restringido al tutor."
+      : "La conexión está lista; falta autorizar el navegador del tutor en la configuración de Firebase.";
 }
 
 $("add-participants").addEventListener("click", async () => {
@@ -318,34 +317,6 @@ document.querySelectorAll("[data-phase]").forEach(button => button.addEventListe
   } catch(error) { alert(error.message || "No se pudo cambiar la etapa.","error"); }
 }));
 
-$("tutor-login").addEventListener("submit", async event => {
-  event.preventDefault();
-  const email = $("tutor-email").value.trim().toLowerCase();
-  const password = $("tutor-password").value;
-  try {
-    await signInWithEmailAndPassword(state.auth,email,password);
-    const user=state.auth.currentUser;
-    if (!user.emailVerified) { await signOut(state.auth); return alert("Verifica el correo desde el mensaje que te envió Firebase y vuelve a iniciar sesión.","error"); }
-  } catch(error) { alert(error.message || "No se pudo iniciar sesión.","error"); }
-});
-
-$("tutor-register").addEventListener("click", async () => {
-  const email = $("tutor-email").value.trim().toLowerCase();
-  const password = $("tutor-password").value;
-  if (!email) return alert("Escribe el correo que usarás como tutora.","error");
-  if (password.length < 8) return alert("Crea una contraseña de al menos 8 caracteres.","error");
-  try {
-    const credential = await createUserWithEmailAndPassword(state.auth,email,password);
-    await sendEmailVerification(credential.user);
-    await signOut(state.auth);
-    alert("Acceso creado. Abre el correo de verificación y después inicia sesión como tutor.");
-  } catch(error) { alert(error.message || "No se pudo crear el acceso.","error"); }
-});
-
-$("tutor-signout").addEventListener("click", async () => {
-  try { await signOut(state.auth); await signInAnonymously(state.auth); }
-  catch(error) { alert(error.message || "No se pudo cerrar sesión.","error"); }
-});
 $("tutor-vote-button").addEventListener("click", () => switchView("vote"));
 
 async function startApp() {
@@ -369,7 +340,7 @@ async function startApp() {
       }
       state.booting = false;
       const uidConfigured = configuredTutorUid && !configuredTutorUid.startsWith("REPLACE_");
-      state.isTutor = Boolean(user.emailVerified && (!uidConfigured || user.uid === configuredTutorUid));
+      state.isTutor = Boolean(uidConfigured && user.uid === configuredTutorUid);
       state.profile = null;
       if (!state.isTutor && user.isAnonymous) {
         try { const profileSnap = await getDoc(doc(state.db,"userProfiles",user.uid)); if (profileSnap.exists()) state.profile = profileSnap.data(); }
